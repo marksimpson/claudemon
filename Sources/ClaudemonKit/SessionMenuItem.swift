@@ -17,8 +17,8 @@ public struct SessionMenuItem: View {
             case .working: "WORKING"
             }
             let detail = session.message.isEmpty
-                ? "\(statusLabel) · tab \(session.tabIndex)"
-                : "\(statusLabel) · tab \(session.tabIndex) · \(session.message)"
+                ? "\(statusLabel) · tab \(session.tabIndex + 1)"
+                : "\(statusLabel) · tab \(session.tabIndex + 1) · \(session.message)"
             Text("\(session.name) — \(detail)")
         }
     }
