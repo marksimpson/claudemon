@@ -5,7 +5,7 @@ public struct StateFile: Codable {
 }
 
 public struct SessionState: Codable {
-    public let itermSessionId: String
+    public let itermSessionId: String?
     public let lastEvent: String
     public let lastEventTime: String
     public let message: String
@@ -71,12 +71,14 @@ public struct SessionLoader {
             let isoFormatter = ISO8601DateFormatter()
             let eventTime = isoFormatter.date(from: state.lastEventTime) ?? Date()
 
+            let itermId = state.itermSessionId ?? ""
+
             sessions.append(Session(
                 id: sessionId,
                 name: name,
                 status: SessionStatus(lastEvent: state.lastEvent),
-                tabIndex: Session.parseTabIndex(from: state.itermSessionId),
-                itermSessionId: state.itermSessionId,
+                tabIndex: Session.parseTabIndex(from: itermId),
+                itermSessionId: itermId,
                 message: state.message,
                 lastEventTime: eventTime
             ))
