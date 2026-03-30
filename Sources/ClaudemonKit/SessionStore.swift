@@ -1,7 +1,6 @@
 import Foundation
-import SwiftUI
+import Combine
 
-@MainActor
 public class SessionStore: ObservableObject {
     @Published public var sessions: [Session] = []
 
@@ -42,9 +41,7 @@ public class SessionStore: ObservableObject {
 
     private func startLivenessTimer() {
         livenessTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.reload()
-            }
+            self?.reload()
         }
     }
 

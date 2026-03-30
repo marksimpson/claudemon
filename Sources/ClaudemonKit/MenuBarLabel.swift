@@ -1,17 +1,7 @@
-import SwiftUI
+import AppKit
 
-public struct MenuBarLabel: View {
-    public let sessions: [Session]
-
-    public init(sessions: [Session]) {
-        self.sessions = sessions
-    }
-
-    public var body: some View {
-        Image(nsImage: renderDots())
-    }
-
-    private func renderDots() -> NSImage {
+public enum DotStrip {
+    public static func renderDots(sessions: [Session]) -> NSImage {
         let dotSize: CGFloat = 8
         let spacing: CGFloat = 3
         let colors: [NSColor] = sessions.isEmpty
@@ -37,7 +27,7 @@ public struct MenuBarLabel: View {
 }
 
 extension SessionStatus {
-    var nsColor: NSColor {
+    public var nsColor: NSColor {
         switch self {
         case .permission: return .systemRed
         case .idle: return .systemYellow

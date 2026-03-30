@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 public enum SessionStatus {
     case working
@@ -59,12 +59,3 @@ extension Session {
     }
 }
 
-extension SessionStatus {
-    public var color: Color {
-        switch self {
-        case .permission: return .red
-        case .idle: return .yellow
-        case .working: return .green
-        }
-    }
-}
