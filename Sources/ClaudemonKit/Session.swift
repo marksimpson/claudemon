@@ -6,7 +6,20 @@ public enum SessionStatus {
     case idle
 }
 
-extension SessionStatus: Equatable {
+extension SessionStatus: Equatable, Comparable {
+    /// Lower value = more urgent.
+    public var urgency: Int {
+        switch self {
+        case .permission: return 0
+        case .idle: return 1
+        case .working: return 2
+        }
+    }
+
+    public static func < (lhs: SessionStatus, rhs: SessionStatus) -> Bool {
+        lhs.urgency < rhs.urgency
+    }
+
     public init(lastEvent: String) {
         switch lastEvent {
         case "permission_prompt":

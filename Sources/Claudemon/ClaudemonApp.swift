@@ -18,7 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: SessionStore!
     private var cancellable: AnyCancellable?
     private var cycleIndex = 0
-    private var lastUrgentIds: [String] = []
+    private var lastSessionIds: [String] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         store = SessionStore()
@@ -40,12 +40,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateStatusItem(sessions: [Session]) {
         statusItem.button?.image = DotStrip.renderDots(sessions: sessions)
 
-        let urgentIds = sessions
-            .filter { $0.status == .permission || $0.status == .idle }
-            .map(\.id)
-        if urgentIds != lastUrgentIds {
+        let sorted = sessionsByUrgency(sessions)
+        let ids = sorted.map(\.id)
+        if ids != lastSessionIds {
             cycleIndex = 0
-            lastUrgentIds = urgentIds
+            lastSessionIds = ids
+        }
+    }
+
+    /// Sorts sessions by urgency: PERMISSION first, then IDLE, then WORKING.
+    private func sessionsByUrgency(_ sessions: [Session]) -> [Session] {
+        sessions.sorted { a, b in
+            a.status.urgency < b.status.urgency
         }
     }
 
@@ -55,20 +61,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if event.type == .rightMouseUp || event.modifierFlags.contains(.option) {
             showMenu()
         } else {
-            let urgent = store.sessions.filter { $0.status == .permission || $0.status == .idle }
-            if urgent.isEmpty {
+            let sorted = sessionsByUrgency(store.sessions)
+            if sorted.isEmpty {
                 showMenu()
             } else {
-                cycleToNext(urgent: urgent)
+                cycleToNext(sessions: sorted)
             }
         }
     }
 
-    private func cycleToNext(urgent: [Session]) {
-        if cycleIndex >= urgent.count { cycleIndex = 0 }
-        let session = urgent[cycleIndex]
+    private func cycleToNext(sessions: [Session]) {
+        if cycleIndex >= sessions.count { cycleIndex = 0 }
+        let session = sessions[cycleIndex]
         ITerm.activateSession(itermSessionId: session.itermSessionId)
-        cycleIndex = (cycleIndex + 1) % urgent.count
+        cycleIndex = (cycleIndex + 1) % sessions.count
     }
 
     private func showMenu() {
