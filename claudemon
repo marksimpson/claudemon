@@ -34,9 +34,9 @@ session_field() {
   for f in "$SESSIONS_DIR"/*.json; do
     [ -f "$f" ] || continue
     local sid
-    sid=$(jq -r '.sessionId // empty' "$f")
+    sid=$(jq -r '.sessionId // empty' "$f" 2>/dev/null)
     if [ "$sid" = "$target_sid" ]; then
-      jq -r "$field" "$f"
+      jq -r "$field" "$f" 2>/dev/null
       return
     fi
   done
