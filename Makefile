@@ -14,6 +14,7 @@ bundle: build
 	mkdir -p $(BUNDLE_DIR)/Contents/MacOS
 	cp $(BUILD_DIR)/$(APP_NAME) $(BUNDLE_DIR)/Contents/MacOS/
 	cp Info.plist $(BUNDLE_DIR)/Contents/
+	codesign --force --sign - --entitlements Claudemon.entitlements $(BUNDLE_DIR)
 
 install: bundle
 	cp -r $(BUNDLE_DIR) /Applications/
