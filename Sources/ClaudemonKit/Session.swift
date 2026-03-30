@@ -58,3 +58,13 @@ extension Session {
         return Int(itermSessionId[afterT..<pIdx]) ?? 0
     }
 }
+
+extension SessionStatus {
+    public var color: Color {
+        switch self {
+        case .permission: return .red
+        case .idle: return .yellow
+        case .working: return .green
+        }
+    }
+}
