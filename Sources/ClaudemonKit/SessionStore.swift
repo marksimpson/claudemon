@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 
+@MainActor
 public class SessionStore: ObservableObject {
     @Published public var sessions: [Session] = []
 
