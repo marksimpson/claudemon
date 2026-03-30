@@ -78,7 +78,7 @@ for SID in $(echo "$STATE" | jq -r '.sessions | keys[]'); do
       STATUS_COLOR="$RED"
       STATUS_PLAIN="PERMISSION"
       ;;
-    idle_prompt)
+    idle_prompt|idle)
       STATUS_COLOR="$YELLOW"
       STATUS_PLAIN="IDLE"
       ;;

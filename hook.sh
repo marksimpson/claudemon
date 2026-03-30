@@ -69,6 +69,17 @@ case "$EVENT" in
       }')
     ;;
 
+  Stop)
+    STATE=$(echo "$STATE" | jq \
+      --arg sid "$SESSION_ID" \
+      --arg ts "$NOW" \
+      '.sessions[$sid] = (.sessions[$sid] // {}) + {
+        last_event: "idle",
+        last_event_time: $ts,
+        message: ""
+      }')
+    ;;
+
   *)
     exit 0
     ;;
