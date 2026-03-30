@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # claudemon hook — tracks Claude Code session state for the session monitor.
-# Handles: SessionStart, SessionEnd, Notification, UserPromptSubmit, Stop, PostToolUse
+# Handles: SessionStart, SessionEnd, Notification, UserPromptSubmit, Stop
 # Requires: jq
 
 set -euo pipefail
@@ -84,21 +84,6 @@ case "$EVENT" in
     STATE=$(echo "$STATE" | jq \
       --arg sid "$SESSION_ID" \
       'del(.sessions[$sid])')
-    ;;
-
-  PostToolUse)
-    # Clear PERMISSION state after a tool executes (permission was granted)
-    CURRENT=$(echo "$STATE" | jq -r ".sessions[\"$SESSION_ID\"].last_event // empty")
-    if [ "$CURRENT" = "permission_prompt" ]; then
-      STATE=$(echo "$STATE" | jq \
-        --arg sid "$SESSION_ID" \
-        --arg ts "$NOW" \
-        '.sessions[$sid] = (.sessions[$sid] // {}) + {
-          last_event: "tool_use",
-          last_event_time: $ts,
-          message: ""
-        }')
-    fi
     ;;
 
   *)
