@@ -11,7 +11,7 @@ extension SessionStatus: Equatable {
         switch lastEvent {
         case "permission_prompt":
             self = .permission
-        case "idle":
+        case "idle", "session_start":
             self = .idle
         default:
             self = .working

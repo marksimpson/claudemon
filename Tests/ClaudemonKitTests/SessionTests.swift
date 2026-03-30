@@ -11,8 +11,8 @@ struct SessionStatusTests {
         #expect(SessionStatus(lastEvent: "idle") == .idle)
     }
 
-    @Test func sessionStartMapsToWorking() {
-        #expect(SessionStatus(lastEvent: "session_start") == .working)
+    @Test func sessionStartMapsToIdle() {
+        #expect(SessionStatus(lastEvent: "session_start") == .idle)
     }
 
     @Test func userPromptMapsToWorking() {
