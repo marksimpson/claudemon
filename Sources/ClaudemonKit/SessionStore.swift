@@ -6,6 +6,7 @@ public class SessionStore: ObservableObject {
     @Published public var sessions: [Session] = []
 
     private var directorySource: DispatchSourceFileSystemObject?
+    private var livenessTimer: Timer?
     private let stateDirectory: URL
     private let sessionsDirectory: URL
     private let loader: SessionLoader
@@ -24,10 +25,12 @@ public class SessionStore: ObservableObject {
         self.loader = loader
         reload()
         startWatching()
+        startLivenessTimer()
     }
 
     deinit {
         directorySource?.cancel()
+        livenessTimer?.invalidate()
     }
 
     public func reload() {
@@ -35,6 +38,14 @@ public class SessionStore: ObservableObject {
             stateDirectory: stateDirectory,
             sessionsDirectory: sessionsDirectory
         )
+    }
+
+    private func startLivenessTimer() {
+        livenessTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.reload()
+            }
+        }
     }
 
     private func startWatching() {
