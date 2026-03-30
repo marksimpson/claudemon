@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# claudemon — show active Claude Code sessions and their status.
+# Requires: jq
+
+set -euo pipefail
+
+STATE_FILE="$HOME/.claude/claudemon/state.json"
+SESSIONS_DIR="$HOME/.claude/sessions"
+
+# Colour codes
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+GREEN='\033[0;32m'
+RESET='\033[0m'
+
+# Load state file
+if [ ! -f "$STATE_FILE" ]; then
+  echo "No active sessions."
+  exit 0
+fi
+
+STATE=$(cat "$STATE_FILE")
+
+if [ ! -d "$SESSIONS_DIR" ]; then
+  echo "No active sessions."
+  exit 0
+fi
+
+# Look up a field from the session file matching a given sessionId.
+# Usage: session_field <sessionId> <jq-field-expr>
+session_field() {
+  local target_sid="$1"
+  local field="$2"
+  for f in "$SESSIONS_DIR"/*.json; do
+    [ -f "$f" ] || continue
+    local sid
+    sid=$(jq -r '.sessionId // empty' "$f")
+    if [ "$sid" = "$target_sid" ]; then
+      jq -r "$field" "$f"
+      return
+    fi
+  done
+}
+
+# Collect rows and track dead sessions
+ROWS=()
+DEAD_SIDS=()
+
+for SID in $(echo "$STATE" | jq -r '.sessions | keys[]'); do
+  PID=$(session_field "$SID" '.pid // empty')
+
+  # No session file or PID not running → dead
+  if [ -z "$PID" ] || ! ps -p "$PID" > /dev/null 2>&1; then
+    DEAD_SIDS+=("$SID")
+    continue
+  fi
+
+  # Session name: use name field if set, otherwise last component of cwd
+  NAME=$(session_field "$SID" '.name // empty')
+  if [ -z "$NAME" ]; then
+    CWD=$(session_field "$SID" '.cwd // empty')
+    NAME="${CWD##*/}"
+  fi
+  [ -z "$NAME" ] && NAME="unknown"
+
+  LAST_EVENT=$(echo "$STATE" | jq -r ".sessions[\"$SID\"].last_event // empty")
+  MESSAGE=$(echo "$STATE" | jq -r ".sessions[\"$SID\"].message // empty")
+
+  # Extract iTerm tab number from iterm_session_id (wXtYpZ format)
+  ITERM_ID=$(echo "$STATE" | jq -r ".sessions[\"$SID\"].iterm_session_id // empty")
+  TAB=""
+  if [ -n "$ITERM_ID" ]; then
+    TAB=$(echo "$ITERM_ID" | sed -n 's/^w[0-9]*t\([0-9]*\)p.*/\1/p')
+  fi
+
+  case "$LAST_EVENT" in
+    permission_prompt)
+      STATUS_COLOR="$RED"
+      STATUS_PLAIN="PERMISSION"
+      ;;
+    idle_prompt)
+      STATUS_COLOR="$YELLOW"
+      STATUS_PLAIN="IDLE"
+      ;;
+    *)
+      STATUS_COLOR="$GREEN"
+      STATUS_PLAIN="WORKING"
+      ;;
+  esac
+
+  # Sort key: PERMISSION first, then IDLE, then WORKING
+  case "$STATUS_PLAIN" in
+    PERMISSION) SORT_KEY="0" ;;
+    IDLE)       SORT_KEY="1" ;;
+    *)          SORT_KEY="2" ;;
+  esac
+
+  SEP=$'\x1F'
+  ROWS+=("${SORT_KEY}${SEP}${NAME}${SEP}${STATUS_COLOR}${SEP}${STATUS_PLAIN}${SEP}${TAB}${SEP}${MESSAGE}")
+done
+
+# Clean up dead sessions from state file
+if [ ${#DEAD_SIDS[@]} -gt 0 ]; then
+  for SID in "${DEAD_SIDS[@]}"; do
+    STATE=$(echo "$STATE" | jq --arg sid "$SID" 'del(.sessions[$sid])')
+  done
+  echo "$STATE" | jq . > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
+fi
+
+if [ ${#ROWS[@]} -eq 0 ]; then
+  echo "No active sessions."
+  exit 0
+fi
+
+# Sort rows (PERMISSION first, then IDLE, then WORKING)
+IFS=$'\n' SORTED=($(printf '%s\n' "${ROWS[@]}" | sort)); unset IFS
+
+# Print header
+printf "%-30s  %-12s  %-4s  %s\n" "SESSION" "STATUS" "TAB" "MESSAGE"
+
+for ROW in "${SORTED[@]}"; do
+  IFS=$'\x1F' read -r _SORT NAME STATUS_COLOR STATUS_PLAIN TAB MESSAGE <<< "$ROW"
+  printf "%-30s  %b%-12s%b  %-4s  %s\n" "$NAME" "$STATUS_COLOR" "$STATUS_PLAIN" "$RESET" "$TAB" "$MESSAGE"
+done
