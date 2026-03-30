@@ -47,15 +47,21 @@ public struct SessionLoader {
         var sessions: [Session] = []
         var deadSessionIds: [String] = []
 
+        let isoFormatter = ISO8601DateFormatter()
+        let gracePeriod: TimeInterval = 10
+
         for (sessionId, state) in stateFile.sessions {
+            let eventTime = isoFormatter.date(from: state.lastEventTime) ?? .distantPast
+            let isRecent = Date().timeIntervalSince(eventTime) < gracePeriod
+
             guard let claudeSession = claudeSessions[sessionId] else {
-                deadSessionIds.append(sessionId)
+                if !isRecent { deadSessionIds.append(sessionId) }
                 continue
             }
 
             guard let pid = claudeSession.pid,
                   isProcessRunning(Int32(pid)) else {
-                deadSessionIds.append(sessionId)
+                if !isRecent { deadSessionIds.append(sessionId) }
                 continue
             }
 
@@ -67,9 +73,6 @@ public struct SessionLoader {
             } else {
                 name = "unknown"
             }
-
-            let isoFormatter = ISO8601DateFormatter()
-            let eventTime = isoFormatter.date(from: state.lastEventTime) ?? Date()
 
             let itermId = state.itermSessionId ?? ""
 
