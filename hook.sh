@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # claudemon hook — tracks Claude Code session state for the session monitor.
-# Handles: SessionStart, SessionEnd, Notification, UserPromptSubmit, Stop
+# Handles: SessionStart, SessionEnd, Notification, UserPromptSubmit, Stop, PostToolUse
 # Requires: jq
 
 set -euo pipefail
 
 STATE_DIR="$HOME/.claude/claudemon"
 STATE_FILE="$STATE_DIR/state.json"
+LOCK_DIR="$STATE_DIR/.lock"
 
 mkdir -p "$STATE_DIR"
 
@@ -18,6 +19,18 @@ EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
 if [ -z "$SESSION_ID" ] || [ -z "$EVENT" ]; then
   exit 0
 fi
+
+# Acquire lock — mkdir is atomic on POSIX
+TRIES=0
+while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+  sleep 0.01
+  TRIES=$((TRIES + 1))
+  if [ "$TRIES" -gt 100 ]; then
+    # Stale lock — remove and retry
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
+done
+trap 'rmdir "$LOCK_DIR" 2>/dev/null' EXIT
 
 # Read existing state or start fresh
 if [ -f "$STATE_FILE" ]; then
@@ -84,6 +97,20 @@ case "$EVENT" in
     STATE=$(echo "$STATE" | jq \
       --arg sid "$SESSION_ID" \
       'del(.sessions[$sid])')
+    ;;
+
+  PostToolUse)
+    CURRENT=$(echo "$STATE" | jq -r ".sessions[\"$SESSION_ID\"].last_event // empty")
+    if [ "$CURRENT" = "permission_prompt" ]; then
+      STATE=$(echo "$STATE" | jq \
+        --arg sid "$SESSION_ID" \
+        --arg ts "$NOW" \
+        '.sessions[$sid] = (.sessions[$sid] // {}) + {
+          last_event: "tool_use",
+          last_event_time: $ts,
+          message: ""
+        }')
+    fi
     ;;
 
   *)
