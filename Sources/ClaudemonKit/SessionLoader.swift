@@ -78,6 +78,7 @@ public struct SessionLoader {
                 id: sessionId,
                 name: name,
                 status: SessionStatus(lastEvent: state.lastEvent),
+                windowIndex: Session.parseWindowIndex(from: itermId),
                 tabIndex: Session.parseTabIndex(from: itermId),
                 itermSessionId: itermId,
                 message: state.message,
@@ -96,7 +97,10 @@ public struct SessionLoader {
             }
         }
 
-        return sessions.sorted { $0.tabIndex < $1.tabIndex }
+        return sessions.sorted { a, b in
+            if a.windowIndex != b.windowIndex { return a.windowIndex < b.windowIndex }
+            return a.tabIndex < b.tabIndex
+        }
     }
 
     private func loadClaudeSessions(from directory: URL) -> [Int: ClaudeSessionFile] {

@@ -206,6 +206,60 @@ struct SessionLoaderTests {
         #expect(sessions[1].id == "s1")  // tab 5
     }
 
+    @Test func sortsSessionsByWindowThenTab() throws {
+        // Two windows, tab indices overlap. Expected order: w0t0, w0t2, w1t0, w1t3.
+        let stateDir = try makeTempStateDir(stateJSON: """
+            {
+              "sessions": {
+                "w1-t3": {
+                  "pid": 10,
+                  "iterm_session_id": "w1t3p0:GUID-A",
+                  "last_event": "idle",
+                  "last_event_time": "2026-03-30T01:00:00Z",
+                  "message": ""
+                },
+                "w0-t2": {
+                  "pid": 20,
+                  "iterm_session_id": "w0t2p0:GUID-B",
+                  "last_event": "idle",
+                  "last_event_time": "2026-03-30T01:00:00Z",
+                  "message": ""
+                },
+                "w1-t0": {
+                  "pid": 30,
+                  "iterm_session_id": "w1t0p0:GUID-C",
+                  "last_event": "idle",
+                  "last_event_time": "2026-03-30T01:00:00Z",
+                  "message": ""
+                },
+                "w0-t0": {
+                  "pid": 40,
+                  "iterm_session_id": "w0t0p0:GUID-D",
+                  "last_event": "idle",
+                  "last_event_time": "2026-03-30T01:00:00Z",
+                  "message": ""
+                }
+              }
+            }
+            """)
+        let sessionsDir = try makeTempSessionsDir(files: [
+            ("10.json", #"{"sessionId": "w1-t3", "pid": 10, "cwd": "/a"}"#),
+            ("20.json", #"{"sessionId": "w0-t2", "pid": 20, "cwd": "/b"}"#),
+            ("30.json", #"{"sessionId": "w1-t0", "pid": 30, "cwd": "/c"}"#),
+            ("40.json", #"{"sessionId": "w0-t0", "pid": 40, "cwd": "/d"}"#),
+        ])
+
+        let loader = SessionLoader(isProcessRunning: { _ in true })
+        let sessions = loader.load(
+            stateDirectory: stateDir,
+            sessionsDirectory: sessionsDir
+        )
+
+        #expect(sessions.map(\.id) == ["w0-t0", "w0-t2", "w1-t0", "w1-t3"])
+        #expect(sessions[0].windowIndex == 0)
+        #expect(sessions[2].windowIndex == 1)
+    }
+
     @Test func matchesByPidWhenClaudeSessionIdIsStale() throws {
         // Simulates the /clear race: SessionStart has fired with the new session ID
         // so state.json is up to date, but Claude has not yet rewritten

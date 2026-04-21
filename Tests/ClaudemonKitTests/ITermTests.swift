@@ -25,6 +25,7 @@ struct ITermTests {
         let script = ITerm.activationScript(for: "MY-GUID-123")
         #expect(script.contains("\"MY-GUID-123\""))
         #expect(script.contains("tell application \"iTerm2\""))
+        #expect(script.contains("select w"))
         #expect(script.contains("select t"))
     }
 }

@@ -16,6 +16,7 @@ public enum ITerm {
                 repeat with t in tabs of w
                     repeat with s in sessions of t
                         if unique ID of s is "\(guid)" then
+                            select w
                             select t
                             return
                         end if

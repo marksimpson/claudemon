@@ -36,6 +36,7 @@ public struct Session: Identifiable {
     public let id: String
     public let name: String
     public let status: SessionStatus
+    public let windowIndex: Int
     public let tabIndex: Int
     public let itermSessionId: String
     public let message: String
@@ -45,6 +46,7 @@ public struct Session: Identifiable {
         id: String,
         name: String,
         status: SessionStatus,
+        windowIndex: Int,
         tabIndex: Int,
         itermSessionId: String,
         message: String,
@@ -53,6 +55,7 @@ public struct Session: Identifiable {
         self.id = id
         self.name = name
         self.status = status
+        self.windowIndex = windowIndex
         self.tabIndex = tabIndex
         self.itermSessionId = itermSessionId
         self.message = message
@@ -61,6 +64,16 @@ public struct Session: Identifiable {
 }
 
 extension Session {
+    /// Extracts the window index from an iTerm session ID string.
+    /// Format: wXtYpZ:GUID — returns X.
+    public static func parseWindowIndex(from itermSessionId: String) -> Int {
+        guard itermSessionId.first == "w" else { return 0 }
+        let afterW = itermSessionId.index(after: itermSessionId.startIndex)
+        guard afterW < itermSessionId.endIndex else { return 0 }
+        guard let tIdx = itermSessionId[afterW...].firstIndex(of: "t") else { return 0 }
+        return Int(itermSessionId[afterW..<tIdx]) ?? 0
+    }
+
     /// Extracts the tab index from an iTerm session ID string.
     /// Format: wXtYpZ:GUID — returns Y.
     public static func parseTabIndex(from itermSessionId: String) -> Int {
