@@ -5,12 +5,14 @@ public struct StateFile: Codable {
 }
 
 public struct SessionState: Codable {
+    public let pid: Int
     public let itermSessionId: String?
     public let lastEvent: String
     public let lastEventTime: String
     public let message: String
 
     enum CodingKeys: String, CodingKey {
+        case pid
         case itermSessionId = "iterm_session_id"
         case lastEvent = "last_event"
         case lastEventTime = "last_event_time"
@@ -32,7 +34,7 @@ public struct SessionLoader {
         self.isProcessRunning = isProcessRunning
     }
 
-    /// Loads sessions by joining state.json with Claude's session files.
+    /// Loads sessions by joining state.json with Claude's session files on PID.
     /// Filters out dead sessions and removes them from state.json.
     /// Returns sessions sorted by tab index.
     public func load(stateDirectory: URL, sessionsDirectory: URL) -> [Session] {
@@ -43,7 +45,7 @@ public struct SessionLoader {
             return []
         }
 
-        let claudeSessions = loadClaudeSessions(from: sessionsDirectory)
+        let claudeSessionsByPid = loadClaudeSessions(from: sessionsDirectory)
         var sessions: [Session] = []
         var deadSessionIds: [String] = []
 
@@ -54,21 +56,17 @@ public struct SessionLoader {
             let eventTime = isoFormatter.date(from: state.lastEventTime) ?? .distantPast
             let isRecent = Date().timeIntervalSince(eventTime) < gracePeriod
 
-            guard let claudeSession = claudeSessions[sessionId] else {
+            guard isProcessRunning(Int32(state.pid)) else {
                 if !isRecent { deadSessionIds.append(sessionId) }
                 continue
             }
 
-            guard let pid = claudeSession.pid,
-                  isProcessRunning(Int32(pid)) else {
-                if !isRecent { deadSessionIds.append(sessionId) }
-                continue
-            }
+            let claudeSession = claudeSessionsByPid[state.pid]
 
             let name: String
-            if let sessionName = claudeSession.name, !sessionName.isEmpty {
+            if let sessionName = claudeSession?.name, !sessionName.isEmpty {
                 name = sessionName
-            } else if let cwd = claudeSession.cwd {
+            } else if let cwd = claudeSession?.cwd {
                 name = URL(fileURLWithPath: cwd).lastPathComponent
             } else {
                 name = "unknown"
@@ -101,8 +99,8 @@ public struct SessionLoader {
         return sessions.sorted { $0.tabIndex < $1.tabIndex }
     }
 
-    private func loadClaudeSessions(from directory: URL) -> [String: ClaudeSessionFile] {
-        var result: [String: ClaudeSessionFile] = [:]
+    private func loadClaudeSessions(from directory: URL) -> [Int: ClaudeSessionFile] {
+        var result: [Int: ClaudeSessionFile] = [:]
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: directory,
             includingPropertiesForKeys: nil
@@ -112,10 +110,10 @@ public struct SessionLoader {
         for file in files where file.pathExtension == "json" {
             guard let data = try? Data(contentsOf: file),
                   let session = try? JSONDecoder().decode(ClaudeSessionFile.self, from: data),
-                  let sessionId = session.sessionId else {
+                  let pid = session.pid else {
                 continue
             }
-            result[sessionId] = session
+            result[pid] = session
         }
         return result
     }

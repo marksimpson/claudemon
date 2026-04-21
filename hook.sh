@@ -15,6 +15,8 @@ INPUT=$(cat)
 
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty')
+CLAUDE_PID="$PPID"
+ITERM_ID="${ITERM_SESSION_ID:-}"
 
 if [ -z "$SESSION_ID" ] || [ -z "$EVENT" ]; then
   exit 0
@@ -43,12 +45,13 @@ NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 case "$EVENT" in
   SessionStart)
-    ITERM_ID="${ITERM_SESSION_ID:-}"
     STATE=$(echo "$STATE" | jq \
       --arg sid "$SESSION_ID" \
       --arg iterm "$ITERM_ID" \
       --arg ts "$NOW" \
+      --argjson pid "$CLAUDE_PID" \
       '.sessions[$sid] = (.sessions[$sid] // {}) + {
+        pid: $pid,
         iterm_session_id: $iterm,
         last_event: "session_start",
         last_event_time: $ts,
@@ -61,10 +64,14 @@ case "$EVENT" in
     MSG=$(echo "$INPUT" | jq -r '.message // empty')
     STATE=$(echo "$STATE" | jq \
       --arg sid "$SESSION_ID" \
+      --arg iterm "$ITERM_ID" \
       --arg ntype "$NTYPE" \
       --arg msg "$MSG" \
       --arg ts "$NOW" \
+      --argjson pid "$CLAUDE_PID" \
       '.sessions[$sid] = (.sessions[$sid] // {}) + {
+        pid: $pid,
+        iterm_session_id: $iterm,
         last_event: $ntype,
         last_event_time: $ts,
         message: $msg
@@ -74,8 +81,12 @@ case "$EVENT" in
   UserPromptSubmit)
     STATE=$(echo "$STATE" | jq \
       --arg sid "$SESSION_ID" \
+      --arg iterm "$ITERM_ID" \
       --arg ts "$NOW" \
+      --argjson pid "$CLAUDE_PID" \
       '.sessions[$sid] = (.sessions[$sid] // {}) + {
+        pid: $pid,
+        iterm_session_id: $iterm,
         last_event: "user_prompt",
         last_event_time: $ts,
         message: ""
@@ -85,8 +96,12 @@ case "$EVENT" in
   Stop)
     STATE=$(echo "$STATE" | jq \
       --arg sid "$SESSION_ID" \
+      --arg iterm "$ITERM_ID" \
       --arg ts "$NOW" \
+      --argjson pid "$CLAUDE_PID" \
       '.sessions[$sid] = (.sessions[$sid] // {}) + {
+        pid: $pid,
+        iterm_session_id: $iterm,
         last_event: "idle",
         last_event_time: $ts,
         message: ""
@@ -104,8 +119,12 @@ case "$EVENT" in
     if [ "$CURRENT" = "permission_prompt" ]; then
       STATE=$(echo "$STATE" | jq \
         --arg sid "$SESSION_ID" \
+        --arg iterm "$ITERM_ID" \
         --arg ts "$NOW" \
+        --argjson pid "$CLAUDE_PID" \
         '.sessions[$sid] = (.sessions[$sid] // {}) + {
+          pid: $pid,
+          iterm_session_id: $iterm,
           last_event: "tool_use",
           last_event_time: $ts,
           message: ""

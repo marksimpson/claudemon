@@ -37,6 +37,7 @@ struct SessionLoaderTests {
             {
               "sessions": {
                 "abc-123": {
+                  "pid": 999,
                   "iterm_session_id": "w0t2p0:GUID-AAA",
                   "last_event": "permission_prompt",
                   "last_event_time": "2026-03-30T01:00:00Z",
@@ -71,6 +72,7 @@ struct SessionLoaderTests {
             {
               "sessions": {
                 "abc-456": {
+                  "pid": 888,
                   "iterm_session_id": "w0t0p0:GUID-BBB",
                   "last_event": "idle",
                   "last_event_time": "2026-03-30T01:00:00Z",
@@ -100,12 +102,14 @@ struct SessionLoaderTests {
             {
               "sessions": {
                 "alive-1": {
+                  "pid": 100,
                   "iterm_session_id": "w0t0p0:GUID-1",
                   "last_event": "session_start",
                   "last_event_time": "2026-03-30T01:00:00Z",
                   "message": ""
                 },
                 "dead-2": {
+                  "pid": 200,
                   "iterm_session_id": "w0t1p0:GUID-2",
                   "last_event": "idle",
                   "last_event_time": "2026-03-30T01:00:00Z",
@@ -138,6 +142,7 @@ struct SessionLoaderTests {
             {
               "sessions": {
                 "dead-1": {
+                  "pid": 300,
                   "iterm_session_id": "w0t0p0:GUID-1",
                   "last_event": "idle",
                   "last_event_time": "2026-03-30T01:00:00Z",
@@ -165,12 +170,14 @@ struct SessionLoaderTests {
             {
               "sessions": {
                 "s1": {
+                  "pid": 10,
                   "iterm_session_id": "w0t5p0:GUID-1",
                   "last_event": "idle",
                   "last_event_time": "2026-03-30T01:00:00Z",
                   "message": ""
                 },
                 "s2": {
+                  "pid": 20,
                   "iterm_session_id": "w0t1p0:GUID-2",
                   "last_event": "session_start",
                   "last_event_time": "2026-03-30T01:00:00Z",
@@ -197,6 +204,41 @@ struct SessionLoaderTests {
         #expect(sessions.count == 2)
         #expect(sessions[0].id == "s2")  // tab 1
         #expect(sessions[1].id == "s1")  // tab 5
+    }
+
+    @Test func matchesByPidWhenClaudeSessionIdIsStale() throws {
+        // Simulates the /clear race: SessionStart has fired with the new session ID
+        // so state.json is up to date, but Claude has not yet rewritten
+        // ~/.claude/sessions/{pid}.json, which still references the old session ID.
+        let stateDir = try makeTempStateDir(stateJSON: """
+            {
+              "sessions": {
+                "new-sid": {
+                  "pid": 4242,
+                  "iterm_session_id": "w0t3p0:GUID-X",
+                  "last_event": "session_start",
+                  "last_event_time": "2026-03-30T01:00:00Z",
+                  "message": ""
+                }
+              }
+            }
+            """)
+        let sessionsDir = try makeTempSessionsDir(files: [
+            ("4242.json", """
+                {"sessionId": "old-sid", "pid": 4242, "name": "still-here", "cwd": "/Users/mark/project"}
+            """),
+        ])
+
+        let loader = SessionLoader(isProcessRunning: { $0 == 4242 })
+        let sessions = loader.load(
+            stateDirectory: stateDir,
+            sessionsDirectory: sessionsDir
+        )
+
+        #expect(sessions.count == 1)
+        #expect(sessions[0].id == "new-sid")
+        #expect(sessions[0].name == "still-here")
+        #expect(sessions[0].tabIndex == 3)
     }
 
     @Test func returnsEmptyWhenStateFileIsMissing() throws {
